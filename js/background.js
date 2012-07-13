@@ -5,7 +5,8 @@
     , defaultIcon = 1
     , changeIcon
     
-    , injectScript;
+    , injectScript
+    , injectedTabs = [];
 
   changeIcon = function (icon) {
     chrome.browserAction.setIcon({
@@ -13,30 +14,42 @@
     });
   };
   
-  injectScript = function(tabs) {
-    if (!tabs.length) {
-      return;
+  injectScript = function(tab) {
+    
+    console.log(tab.id, injectedTabs[tab.id]);
+    if (injectedTabs[tab.id] === undefined) {
+      chrome.tabs.executeScript(tab.id, { file: 'js/inject.js' }, function () {
+        injectedTabs[tab.id] = true;
+      });
     }
 
-    // take first tab. Every page has the same functionality
-    var tab = tabs[0];
-    chrome.tabs.executeScript(tab.id, { file: 'js/inject.js' });
   };
-
   
-  chrome.browserAction.onClicked.addListener(function (tab) {
+  chrome.browserAction.onClicked.addListener(function () {
 
     chrome.tabs.query({
       url: '*://music.yandex.ru/*'
-    }, function(tabs) {
-      injectScript(tabs);
+    }, function (tabs) {
+
+      var tab = tabs[0];
+
+      if (tab !== undefined) {
+        injectScript(tab);
+      } else {
+        chrome.tabs.create({
+          url: 'https://music.yandex.ru',
+          pinned: true
+        }, function (tab) {
+          injectScript(tab);
+        });
+      }
     });
-    
+
   });
   
   // On request - change icon
   chrome.extension.onRequest.addListener(function(request, sender, sendResponse) {
-    var currentIcon = (request === "playing" ? 0 : 1);
+    var currentIcon = (request === 'playing' ? 0 : 1);
     changeIcon(icons[currentIcon]);
   });
   
